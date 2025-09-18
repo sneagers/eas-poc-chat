@@ -459,9 +459,10 @@ async def complete_chat_request(request_body, request_headers):
             function_response = await process_function_call(response)  # Add await here
 
             if function_response:
-                request_body["messages"].extend(function_response)
+                function_request_body = request_body.copy()
+                function_request_body["messages"] = request_body["messages"] + function_response
 
-                response, apim_request_id = await send_chat_request(request_body, request_headers)
+                response, apim_request_id = await send_chat_request(function_request_body, request_headers)
                 history_metadata = request_body.get("history_metadata", {})
                 non_streaming_response = format_non_streaming_response(response, history_metadata, apim_request_id)
 
@@ -550,8 +551,9 @@ async def stream_chat_request(request_body, request_headers):
                 # Function call stream completed, functions were executed.
                 # Append function calls and results to history and send to OpenAI, to stream the final answer.
                 if stream_state == "COMPLETED":
-                    request_body["messages"].extend(function_call_stream_state.function_messages)
-                    function_response, apim_request_id = await send_chat_request(request_body, request_headers)
+                    function_request_body = request_body.copy()
+                    function_request_body["messages"] = request_body["messages"] + function_call_stream_state.function_messages
+                    function_response, apim_request_id = await send_chat_request(function_request_body, request_headers)
                     async for functionCompletionChunk in function_response:
                         yield format_stream_response(functionCompletionChunk, history_metadata, apim_request_id)
                 
